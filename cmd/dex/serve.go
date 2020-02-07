@@ -243,7 +243,7 @@ func runServe(options serveOptions) error {
 	if c.EnablePasswordDB {
 		storageConnectors = append(storageConnectors, storage.Connector{
 			ID:   server.LocalConnector,
-			Name: "Email",
+			Name: "Username",
 			Type: server.LocalConnector,
 		})
 		logger.Infof("config connector: local passwords enabled")

@@ -60,6 +60,9 @@ web:
 #   dir: web/
 #   theme: light
 
+frontend:
+  theme: d2iq
+
 # Configuration for telemetry
 telemetry:
   http: 0.0.0.0:5558

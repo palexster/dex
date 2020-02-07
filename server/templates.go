@@ -101,7 +101,7 @@ func loadWebConfig(c webConfig) (http.Handler, http.Handler, *templates, error) 
 		c.issuer = "dex"
 	}
 	if c.logoURL == "" {
-		c.logoURL = "theme/logo.png"
+		c.logoURL = "theme/logo.svg"
 	}
 
 	staticFiles, err := fs.Sub(c.webFS, "static")
