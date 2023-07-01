@@ -87,6 +87,9 @@ staticClients:
 
 oauth2:
   alwaysShowLoginScreen: true
+  grantTypes:
+  - refresh_token
+  - "urn:ietf:params:oauth:grant-type:token-exchange"
 
 connectors:
 - type: mockCallback
@@ -163,6 +166,10 @@ lazyInitConnectors: true
 		},
 		OAuth2: OAuth2{
 			AlwaysShowLoginScreen: true,
+			GrantTypes: []string{
+				"refresh_token",
+				"urn:ietf:params:oauth:grant-type:token-exchange",
+			},
 		},
 		StaticConnectors: []Connector{
 			{
