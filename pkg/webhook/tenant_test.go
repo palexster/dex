@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	dexv1alpha1 "github.com/mesosphere/dex-controller/api/v1alpha1"
 	"net/http"
 	"net/url"
 	"testing"
@@ -20,6 +21,7 @@ import (
 func forgeWebhook() ConnectorWebhookFilter {
 	scheme := runtime.NewScheme()
 	_ = v1alpha1.AddToScheme(scheme)
+	_ = dexv1alpha1.AddToScheme(scheme)
 	initObjs := []client.Object{
 		&v1alpha1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -33,6 +35,15 @@ func forgeWebhook() ConnectorWebhookFilter {
 				NamespaceRef: &v12.LocalObjectReference{
 					Name: "test",
 				},
+			},
+		},
+		&dexv1alpha1.Client{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "implicit-app",
+				Namespace: "kommander",
+			},
+			Spec: dexv1alpha1.ClientSpec{
+				DisplayName: "test/cluster1",
 			},
 		},
 	}
@@ -250,4 +261,59 @@ func Test_Filter_No_Tenant_Parameter(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(filteredConnectors))
 	assert.Equal(t, "preexistent-2", filteredConnectors[0].ID)
+}
+
+func Test_Filter_ClientID_Tenant_Filter(t *testing.T) {
+	webhook := forgeWebhook()
+	connectors := []storage.Connector{
+		{
+			ID:     "mock_test_2",
+			Type:   "mockCallback",
+			Name:   "test",
+			Config: nil,
+		},
+		{
+			ID:     "mock_othertenant_1",
+			Type:   "mockCallback",
+			Name:   "test",
+			Config: nil,
+		},
+	}
+	r := &http.Request{
+		Method: "GET",
+		URL: &url.URL{
+			Scheme:     "",
+			Opaque:     "",
+			User:       nil,
+			Host:       "",
+			Path:       "/dex/auth",
+			RawPath:    "",
+			OmitHost:   false,
+			ForceQuery: false,
+			RawQuery: "client_id=implicit-app&redirect_uri=http%3A%2F%2F127.0.0." +
+				"1%3A5556%2Fcallback&scope=openid&response_type=code&response_mode=fragment&state=i2qfnocqvhb&nonce" +
+				"=4uwvq4p3rts",
+			Fragment:    "",
+			RawFragment: "",
+		},
+		Proto: "HTTP/1.1",
+		Host:  "127.0.0.1:5556",
+		Form: url.Values{
+			"client_id":     []string{"implicit-app"},
+			"redirect_uri":  []string{"http://127.0.0.1:5556/callback"},
+			"scope":         []string{"openid"},
+			"response_type": []string{"code"},
+			"response_mode": []string{"fragment"},
+			"state":         []string{"i2qfnocqvhb"},
+			"nonce":         []string{"4uwvq4p3rts"},
+		},
+		RemoteAddr: "127.0.0.1:48126",
+		RequestURI: "/dex/auth?client_id=example-app&redirect_uri=http%3A%2F%2F127.0.0." +
+			"1%3A5556%2Fcallback&scope=openid&response_type=code&response_mode=fragment&state=i2qfnocqvhb&nonce" +
+			"=4uwvq4p3rts&tenant-id=test",
+	}
+	filteredConnectors, err := webhook.FilterConnectors(connectors, r)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(filteredConnectors))
+	assert.Equal(t, "mock_test_2", filteredConnectors[0].ID)
 }
