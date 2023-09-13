@@ -18,9 +18,10 @@ import (
 )
 
 const (
-	DefaultClientWorkspace = "kommander"
-	DefaultWorkspace       = "kommander-default-workspace"
-	EmptyTenantID          = ""
+	DefaultClientWorkspace   = "kommander"
+	DefaultWorkspace         = "kommander-default-workspace"
+	EmptyTenantID            = ""
+	EnabledMultiTenancyLabel = "kommander.mesosphere.io/enabled-multi-tenancy"
 )
 
 // ConnectorWebhookFilter is an interface for filtering connectors
@@ -81,12 +82,14 @@ func (c *ConnectorWebhookImpl) FilterConnectors(connectors []storage.Connector, 
 	if err != nil {
 		return nil, err
 	}
+
 	workspaceMap := make(map[string]string)
 	wsList := &v1alpha1.WorkspaceList{}
 	err = c.cl.List(context.Background(), wsList)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, ws := range wsList.Items {
 		if ws.Status.NamespaceRef == nil || ws.Status.NamespaceRef.Name == "" {
 			continue
@@ -99,7 +102,9 @@ func (c *ConnectorWebhookImpl) FilterConnectors(connectors []storage.Connector, 
 		if err != nil {
 			return nil, err
 		}
-		if ws != nil && ws.Status.NamespaceRef != nil {
+
+		if ws != nil && len(ws.Labels) != 0 && ws.Labels[EnabledMultiTenancyLabel] == "true" && ws.Status.
+			NamespaceRef != nil {
 			key = ws.Status.NamespaceRef.Name
 		} else {
 			key = ""
