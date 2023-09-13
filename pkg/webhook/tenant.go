@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 
 	dexv1alpha1 "github.com/mesosphere/dex-controller/api/v1alpha1"
@@ -117,6 +118,23 @@ func initializeDexClientList(cl client.Client) (*dexv1alpha1.ClientList, error) 
 	return &dexClientList, nil
 }
 
+func parseStateRequestHeader(stateParam string) (string, error) {
+	// Remove the non-standard prefix, if it exists
+	colonIndex := strings.Index(stateParam, ":")
+	if colonIndex != -1 {
+		// Remove the prefix by slicing the string
+		stateParam = stateParam[colonIndex+1:]
+	}
+
+	// Parse the URL
+	u, err := url.Parse(stateParam)
+	if err != nil {
+		return "", err
+	}
+
+	return u.Query().Get("tenant-id"), nil
+}
+
 // parseTenantID parses the tenant ID from the state request header, if not found looks to the
 // query parameters "tenant-id". As last resort, it extracts the cluster workspace from the client ID, inferring
 // the tenant ID from the namespace.
@@ -128,9 +146,9 @@ func parseTenantID(dexClientList *dexv1alpha1.ClientList, workspaceMap map[strin
 	// If the state request header contains the tenant ID, we use it.
 	receivedState := r.URL.Query().Get("state")
 	if receivedState != "" && strings.LastIndex(receivedState, "tenant-id=") != -1 {
-		tenantIDFromState := receivedState[strings.LastIndex(receivedState, "tenant-id=")+len("tenant-id="):]
-		if tenantIDFromState != "" {
-			return tenantIDFromState
+		tenantID, err := parseStateRequestHeader(receivedState)
+		if err == nil {
+			return tenantID
 		}
 	}
 

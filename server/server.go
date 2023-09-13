@@ -194,7 +194,7 @@ type Server struct {
 
 	logger log.Logger
 
-	connectorWebhookFilterURL webhook.ConnectorWebhookFilter
+	connectorWebhookFilter webhook.ConnectorWebhookFilter
 }
 
 // NewServer constructs a server from the provided config.
@@ -292,28 +292,28 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		now = time.Now
 	}
 
-	hook, err := webhook.NewConnectorWebhookFilter(c.KubeconfigPath)
+	filterWebhook, err := webhook.NewConnectorWebhookFilter(c.KubeconfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("server: failed to create webhook filter: %v", err)
+		return nil, fmt.Errorf("server: failed to create webhook filter: %w", err)
 	}
 
 	s := &Server{
-		issuerURL:                 *issuerURL,
-		connectors:                make(map[string]Connector),
-		storage:                   newKeyCacher(c.Storage, now),
-		supportedResponseTypes:    supportedRes,
-		supportedGrantTypes:       supportedGrants,
-		idTokensValidFor:          value(c.IDTokensValidFor, 24*time.Hour),
-		authRequestsValidFor:      value(c.AuthRequestsValidFor, 24*time.Hour),
-		deviceRequestsValidFor:    value(c.DeviceRequestsValidFor, 5*time.Minute),
-		refreshTokenPolicy:        c.RefreshTokenPolicy,
-		skipApproval:              c.SkipApprovalScreen,
-		alwaysShowLogin:           c.AlwaysShowLoginScreen,
-		now:                       now,
-		templates:                 tmpls,
-		passwordConnector:         c.PasswordConnector,
-		logger:                    c.Logger,
-		connectorWebhookFilterURL: hook,
+		issuerURL:              *issuerURL,
+		connectors:             make(map[string]Connector),
+		storage:                newKeyCacher(c.Storage, now),
+		supportedResponseTypes: supportedRes,
+		supportedGrantTypes:    supportedGrants,
+		idTokensValidFor:       value(c.IDTokensValidFor, 24*time.Hour),
+		authRequestsValidFor:   value(c.AuthRequestsValidFor, 24*time.Hour),
+		deviceRequestsValidFor: value(c.DeviceRequestsValidFor, 5*time.Minute),
+		refreshTokenPolicy:     c.RefreshTokenPolicy,
+		skipApproval:           c.SkipApprovalScreen,
+		alwaysShowLogin:        c.AlwaysShowLoginScreen,
+		now:                    now,
+		templates:              tmpls,
+		passwordConnector:      c.PasswordConnector,
+		logger:                 c.Logger,
+		connectorWebhookFilter: filterWebhook,
 		lazyInitConnectors:     c.LazyInitConnectors,
 	}
 

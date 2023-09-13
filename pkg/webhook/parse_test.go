@@ -79,6 +79,45 @@ func TestParse_StateTenantID(t *testing.T) {
 	assert.Equal(t, "tenant-1-685lr", tenantID)
 }
 
+func TestParse_StateMultipleParamsTenantID(t *testing.T) {
+	r := &http.Request{
+		URL: &url.URL{
+			Scheme:     "",
+			Opaque:     "",
+			User:       nil,
+			Host:       "",
+			Path:       "/dex/auth",
+			RawPath:    "",
+			OmitHost:   false,
+			ForceQuery: false,
+			RawQuery: "client_id=dex-controller-dextfa-client-host-cluster-dcpl6&redirect_uri=https%3A%2F" +
+				"%2Fexample.com%2F_oauth&response_type=code&scope=openid+profile+email+groups&state" +
+				"=f987a4f5b0dfb88870ac3c98e05e5b66%3Ahttps%3A%2F%2Fexample." +
+				"com%2Fdkp%2Fkommander%2Fdashboard%2F%3Ftenant-id%3Dtenant-1-685lr%26custom-param%3Dcustom-value",
+			Fragment:    "",
+			RawFragment: "",
+		},
+		Form: url.Values{
+			"response_mode": []string{"fragment"},
+			"nonce":         []string{"4uwvq4p3rts"},
+			"client_id":     []string{"dex-controller-dextfa-client-host-cluster-dcpl6"},
+			"redirect_uri": []string{"https://example." +
+				"com/_oauth"},
+			"response_type": []string{"code"},
+			"scope":         []string{"openid profile email groups"},
+			"state": []string{"f987a4f5b0dfb88870ac3c98e05e5b66:https://example." +
+				"com/dkp/kommander/dashboard/?tenant-id=tenant-1-685lr%26custom-param=custom-value"},
+		},
+		RemoteAddr: "127.0.0.1:48126",
+		RequestURI: "dex/auth?client_id=dex-controller-dextfa-client-host-cluster-dcpl6&redirect_uri=https%3A%2F" +
+			"%2Fexample.com%2F_oauth&response_type=code&scope=openid+profile+email+groups&state" +
+			"=f987a4f5b0dfb88870ac3c98e05e5b66%3Ahttps%3A%2F%2Fexample." +
+			"com%2Fdkp%2Fkommander%2Fdashboard%2F%3Ftenant-id%3Dtenant-1-685lr%26custom-param%3Dcustom-value",
+	}
+	tenantID := parseTenantID(nil, nil, r)
+	assert.Equal(t, "tenant-1-685lr", tenantID)
+}
+
 func TestParse_ClusterIDTenantID(t *testing.T) {
 	// 'redirect_uri':	https://example.com/_oauth
 	// 'response_type':	code

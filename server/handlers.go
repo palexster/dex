@@ -145,7 +145,7 @@ func (s *Server) handleAuthorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Webhook to filter out providers
-	connectors, err = s.connectorWebhookFilterURL.FilterConnectors(connectors, r)
+	connectors, err = s.connectorWebhookFilter.FilterConnectors(connectors, r)
 	if err != nil {
 		s.logger.Errorf("Failed to filter connectors: %v", err)
 		s.renderError(r, w, http.StatusInternalServerError, "Failed to retrieve connector list.")
