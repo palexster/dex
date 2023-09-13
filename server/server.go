@@ -43,6 +43,7 @@ import (
 	"github.com/dexidp/dex/connector/openshift"
 	"github.com/dexidp/dex/connector/saml"
 	"github.com/dexidp/dex/pkg/log"
+	"github.com/dexidp/dex/pkg/webhook"
 	"github.com/dexidp/dex/storage"
 	"github.com/dexidp/dex/web"
 )
@@ -110,6 +111,8 @@ type Config struct {
 	PrometheusRegistry *prometheus.Registry
 
 	HealthChecker gosundheit.Health
+
+	KubeconfigPath string
 }
 
 // WebConfig holds the server's frontend templates and asset configuration.
@@ -190,6 +193,8 @@ type Server struct {
 	refreshTokenPolicy *RefreshTokenPolicy
 
 	logger log.Logger
+
+	connectorWebhookFilter webhook.ConnectorWebhookFilter
 }
 
 // NewServer constructs a server from the provided config.
@@ -287,6 +292,11 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		now = time.Now
 	}
 
+	filterWebhook, err := webhook.NewConnectorWebhookFilter(c.KubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("server: failed to create webhook filter: %w", err)
+	}
+
 	s := &Server{
 		issuerURL:              *issuerURL,
 		connectors:             make(map[string]Connector),
@@ -297,13 +307,14 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		authRequestsValidFor:   value(c.AuthRequestsValidFor, 24*time.Hour),
 		deviceRequestsValidFor: value(c.DeviceRequestsValidFor, 5*time.Minute),
 		refreshTokenPolicy:     c.RefreshTokenPolicy,
-		lazyInitConnectors:     c.LazyInitConnectors,
 		skipApproval:           c.SkipApprovalScreen,
 		alwaysShowLogin:        c.AlwaysShowLoginScreen,
 		now:                    now,
 		templates:              tmpls,
 		passwordConnector:      c.PasswordConnector,
 		logger:                 c.Logger,
+		connectorWebhookFilter: filterWebhook,
+		lazyInitConnectors:     c.LazyInitConnectors,
 	}
 
 	// Retrieves connector objects in backend storage. This list includes the static connectors

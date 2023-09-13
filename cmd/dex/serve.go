@@ -49,6 +49,8 @@ type serveOptions struct {
 	webHTTPSAddr  string
 	telemetryAddr string
 	grpcAddr      string
+	// kubeconfig is the path to the kubeconfig file.
+	kubeconfig string
 }
 
 func commandServe() *cobra.Command {
@@ -75,6 +77,9 @@ func commandServe() *cobra.Command {
 	flags.StringVar(&options.webHTTPSAddr, "web-https-addr", "", "Web HTTPS address")
 	flags.StringVar(&options.telemetryAddr, "telemetry-addr", "", "Telemetry address")
 	flags.StringVar(&options.grpcAddr, "grpc-addr", "", "gRPC API address")
+
+	// add flags for all the kubeconfig options
+	flags.StringVar(&options.kubeconfig, "kubeconfig-path", "", "kubeconfig file path")
 
 	return cmd
 }
@@ -272,6 +277,7 @@ func runServe(options serveOptions) error {
 		Now:                    now,
 		PrometheusRegistry:     prometheusRegistry,
 		HealthChecker:          healthChecker,
+		KubeconfigPath:         options.kubeconfig,
 		LazyInitConnectors:     c.LazyInitConnectors,
 	}
 	if c.Expiry.SigningKeys != "" {
