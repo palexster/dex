@@ -26,6 +26,9 @@ func forgeWebhook() ConnectorWebhookFilter {
 		&v1alpha1.Workspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
+				Labels: map[string]string{
+					EnabledMultiTenancyLabel: "true",
+				},
 			},
 			Spec: v1alpha1.WorkspaceSpec{
 				ClusterLabels: nil,
@@ -34,6 +37,19 @@ func forgeWebhook() ConnectorWebhookFilter {
 			Status: v1alpha1.WorkspaceStatus{
 				NamespaceRef: &v12.LocalObjectReference{
 					Name: "test",
+				},
+			},
+		},
+		&v1alpha1.Workspace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "not-enabled",
+			},
+			Spec: v1alpha1.WorkspaceSpec{
+				ClusterLabels: nil,
+			},
+			Status: v1alpha1.WorkspaceStatus{
+				NamespaceRef: &v12.LocalObjectReference{
+					Name: "not-enabled",
 				},
 			},
 		},
@@ -51,6 +67,56 @@ func forgeWebhook() ConnectorWebhookFilter {
 	return &ConnectorWebhookImpl{
 		cl: cl,
 	}
+}
+
+func Test_Filter_TenantNotEnabled_Filter(t *testing.T) {
+	webhook := forgeWebhook()
+	connectors := []storage.Connector{
+		{
+			ID:   "mock_not-enabled_1",
+			Type: "mockCallback",
+			Name: "test",
+		},
+		{
+			ID:   "mock_not-enabled_2",
+			Type: "mockCallback",
+			Name: "test",
+		},
+		{
+			ID: "preexistent-2",
+		},
+	}
+	r := &http.Request{
+		Method: "GET",
+		URL: &url.URL{
+			Path: "/dex/auth",
+			RawQuery: "client_id=example-app&redirect_uri=http%3A%2F%2F127.0.0." +
+				"1%3A5556%2Fcallback&scope=openid&response_type=code&response_mode=fragment&state=i2qfnocqvhb&nonce" +
+				"=4uwvq4p3rts&tenant-id=not-enabled",
+			Fragment:    "",
+			RawFragment: "",
+		},
+		Proto: "HTTP/1.1",
+		Host:  "127.0.0.1:5556",
+		Form: url.Values{
+			"client_id":     []string{"example-app"},
+			"redirect_uri":  []string{"http://127.0.0.1:5556/callback"},
+			"scope":         []string{"openid"},
+			"response_type": []string{"code"},
+			"response_mode": []string{"fragment"},
+			"state":         []string{"i2qfnocqvhb"},
+			"nonce":         []string{"4uwvq4p3rts"},
+			"tenant-id":     []string{"not-enabled"},
+		},
+		RemoteAddr: "127.0.0.1:48126",
+		RequestURI: "/dex/auth?client_id=example-app&redirect_uri=http%3A%2F%2F127.0.0." +
+			"1%3A5556%2Fcallback&scope=openid&response_type=code&response_mode=fragment&state=i2qfnocqvhb&nonce" +
+			"=4uwvq4p3rts&tenant-id=not-enabled",
+	}
+	filteredConnectors, err := webhook.FilterConnectors(connectors, r)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(filteredConnectors))
+	assert.Equal(t, "preexistent-2", filteredConnectors[0].ID)
 }
 
 func Test_Filter_Pre_Tenant_Filter(t *testing.T) {
