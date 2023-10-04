@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dexidp/dex/pkg/webhook/claims"
+	"github.com/dexidp/dex/pkg/webhook/connectors"
 	"io/fs"
 	"net/http"
 	"net/url"
@@ -43,7 +45,6 @@ import (
 	"github.com/dexidp/dex/connector/openshift"
 	"github.com/dexidp/dex/connector/saml"
 	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/pkg/webhook"
 	"github.com/dexidp/dex/storage"
 	"github.com/dexidp/dex/web"
 )
@@ -194,7 +195,9 @@ type Server struct {
 
 	logger log.Logger
 
-	connectorWebhookFilter webhook.ConnectorWebhookFilter
+	connectorWebhookFilter connectors.ConnectorWebhookFilter
+
+	claimsWebhookFilter claims.IDTokenMutatingFilter
 }
 
 // NewServer constructs a server from the provided config.
@@ -292,9 +295,14 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		now = time.Now
 	}
 
-	filterWebhook, err := webhook.NewConnectorWebhookFilter(c.KubeconfigPath)
+	filterWebhook, err := connectors.NewConnectorWebhookFilter(c.KubeconfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("server: failed to create webhook filter: %w", err)
+	}
+
+	oidcWebhook, err := claims.NewIDTokenMutatingWebhookFilter(c.KubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("server: failed to create oidc webhook filter: %w", err)
 	}
 
 	s := &Server{
@@ -314,6 +322,7 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		passwordConnector:      c.PasswordConnector,
 		logger:                 c.Logger,
 		connectorWebhookFilter: filterWebhook,
+		claimsWebhookFilter:    oidcWebhook,
 		lazyInitConnectors:     c.LazyInitConnectors,
 	}
 

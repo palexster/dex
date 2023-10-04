@@ -1,4 +1,4 @@
-package webhook
+package connectors
 
 import (
 	dexv1alpha1 "github.com/mesosphere/dex-controller/api/v1alpha1"

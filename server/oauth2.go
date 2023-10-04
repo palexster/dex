@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	claims2 "github.com/dexidp/dex/pkg/webhook/claims"
 	"hash"
 	"io"
 	"net"
@@ -274,7 +275,7 @@ func (a audience) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]string(a))
 }
 
-type idTokenClaims struct {
+type IdTokenClaims struct {
 	Issuer           string   `json:"iss"`
 	Subject          string   `json:"sub"`
 	Audience         audience `json:"aud"`
@@ -336,7 +337,7 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		return "", expiry, fmt.Errorf("failed to marshal offline session ID: %v", err)
 	}
 
-	tok := idTokenClaims{
+	tok := IdTokenClaims{
 		Issuer:   s.issuerURL.String(),
 		Subject:  subjectString,
 		Nonce:    nonce,
@@ -410,6 +411,17 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		// The current client becomes the authorizing party.
 		tok.AuthorizingParty = clientID
 	}
+
+	// Pre-filter the claims before passing them to the webhook.
+	// Pass them to the mutating webhook.
+	webhookPayload, err := s.claimsWebhookFilter.MutateClaims(&claims2.IdTokenClaimsPayload{
+		Groups:            tok.Groups,
+		PreferredUsername: tok.PreferredUsername,
+	}, connID)
+	if err != nil {
+		return "", expiry, fmt.Errorf("failed to mutate claims: %v", err)
+	}
+	tok.Groups = webhookPayload.Groups
 
 	payload, err := json.Marshal(tok)
 	if err != nil {
