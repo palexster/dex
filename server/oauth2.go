@@ -24,6 +24,7 @@ import (
 	jose "gopkg.in/square/go-jose.v2"
 
 	"github.com/dexidp/dex/connector"
+	claimsWebhook "github.com/dexidp/dex/pkg/webhook/claims"
 	"github.com/dexidp/dex/server/internal"
 	"github.com/dexidp/dex/storage"
 )
@@ -411,7 +412,18 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		tok.AuthorizingParty = clientID
 	}
 
-	payload, err := json.Marshal(tok)
+	// Pre-filter the claims before passing them to the webhook.
+	// Pass them to the mutating webhook.
+	var res map[string]interface{}
+	res = forgeMap(tok)
+	for _, v := range s.claimsWebhookFilter {
+		res, err = v.HookInvoker.CallHook(res, connID)
+		if err != nil {
+			return "", time.Time{}, err
+		}
+	}
+
+	payload, err := claimsWebhook.GenerateTokenFromTemplate(convertToMap(tok), res)
 	if err != nil {
 		return "", expiry, fmt.Errorf("could not serialize claims: %v", err)
 	}
@@ -699,4 +711,32 @@ func (s *storageKeySet) VerifySignature(_ context.Context, jwt string) (payload 
 	}
 
 	return nil, errors.New("failed to verify id token signature")
+}
+
+func forgeMap(tok idTokenClaims) map[string]interface{} {
+	return map[string]interface{}{
+		"groups":             tok.Groups,
+		"preferred_username": tok.PreferredUsername,
+		"email":              tok.Email,
+	}
+}
+
+func convertToMap(baseIDClaims idTokenClaims) map[string]interface{} {
+	return map[string]interface{}{
+		"iss":                baseIDClaims.Issuer,
+		"sub":                baseIDClaims.Subject,
+		"aud":                baseIDClaims.Audience,
+		"exp":                baseIDClaims.Expiry,
+		"iat":                baseIDClaims.IssuedAt,
+		"azp":                baseIDClaims.AuthorizingParty,
+		"nonce":              baseIDClaims.Nonce,
+		"at_hash":            baseIDClaims.AccessTokenHash,
+		"c_hash":             baseIDClaims.CodeHash,
+		"email":              baseIDClaims.Email,
+		"email_verified":     baseIDClaims.EmailVerified,
+		"groups":             baseIDClaims.Groups,
+		"name":               baseIDClaims.Name,
+		"preferred_username": baseIDClaims.PreferredUsername,
+		"federated_claims":   baseIDClaims.FederatedIDClaims,
+	}
 }
