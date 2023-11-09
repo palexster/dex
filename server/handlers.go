@@ -144,6 +144,24 @@ func (s *Server) handleAuthorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	FilteredConnectors := []storage.Connector{}
+	FilteredConnectors = append(FilteredConnectors, connectors...)
+	// Webhook to filter out providers
+
+	s.logger.Infof("Connectors: %d", len(FilteredConnectors))
+	s.logger.Infof("Invoking %d hooks to filter connectors", len(s.connectorWebhookFilter))
+	for _, c := range s.connectorWebhookFilter {
+		s.logger.Infof("Calling connectors webhook %s", c.Name)
+		FilteredConnectors, err = c.FilterInvoker.CallHook(FilteredConnectors, r)
+		if err != nil {
+			s.logger.Errorf("Failed to filter connectors: %v", err)
+			s.renderError(r, w, http.StatusInternalServerError, "Failed to retrieve connector list.")
+			return
+		}
+		s.logger.Infof("Connectors after webhook  %s: %d", c.Name, len(FilteredConnectors))
+	}
+	connectors = FilteredConnectors
+
 	// We don't need connector_id any more
 	r.Form.Del("connector_id")
 
@@ -214,6 +232,33 @@ func (s *Server) handleConnectorLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.logger.Errorf("Failed to get connector: %v", err)
 		s.renderError(r, w, http.StatusBadRequest, "Requested resource does not exist")
+		return
+	}
+
+	connObj, err := s.storage.GetConnector(connID)
+	if err != nil {
+		s.logger.Errorf("Failed to get connector: %v", err)
+		s.renderError(r, w, http.StatusBadRequest, "Requested resource does not exist")
+		return
+	}
+
+	s.logger.Infof("Connector Validation: %s", connID)
+	s.logger.Infof("Invoking %d hooks to filter connectors", len(s.connectorWebhookFilter))
+	filteredConnectors := []storage.Connector{connObj}
+	for _, c := range s.connectorWebhookFilter {
+		s.logger.Infof("Calling connectors webhook %s", c.Name)
+		filteredConnectors, err = c.FilterInvoker.CallHook(filteredConnectors, r)
+		if err != nil {
+			s.logger.Errorf("Failed to filter connectors: %v", err)
+			s.renderError(r, w, http.StatusInternalServerError, "Failed to retrieve connector list.")
+			return
+		}
+		s.logger.Infof("Connectors after webhook  %s: %d", c.Name, len(filteredConnectors))
+	}
+
+	if len(filteredConnectors) == 0 {
+		s.logger.Errorf("Connector %s not valid for the current request", connID)
+		s.renderError(r, w, http.StatusBadRequest, "Invalid Request")
 		return
 	}
 
