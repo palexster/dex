@@ -43,6 +43,7 @@ import (
 	"github.com/dexidp/dex/connector/openshift"
 	"github.com/dexidp/dex/connector/saml"
 	"github.com/dexidp/dex/pkg/log"
+	"github.com/dexidp/dex/pkg/webhook/claims"
 	"github.com/dexidp/dex/pkg/webhook/config"
 	"github.com/dexidp/dex/pkg/webhook/connectors"
 	"github.com/dexidp/dex/storage"
@@ -192,6 +193,8 @@ type Server struct {
 	logger log.Logger
 
 	connectorWebhookFilter []*connectors.ConnectorFilterHook
+
+	claimsWebhookFilter []*claims.ClaimsMutatingHook
 }
 
 // NewServer constructs a server from the provided config.
