@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/dexidp/dex/pkg/log"
+	"github.com/dexidp/dex/pkg/webhook/config"
 	"github.com/dexidp/dex/server"
 	"github.com/dexidp/dex/storage"
 	"github.com/dexidp/dex/storage/ent"
@@ -49,6 +50,9 @@ type Config struct {
 	// querying the storage. Cannot be specified without enabling a passwords
 	// database.
 	StaticPasswords []password `json:"staticPasswords"`
+
+	// ConnectorFilterHooks is a list of hooks that can be used to filter the connectors`
+	ConnectorFilterHooks config.ConnectorFilterHooks `json:"connectorFiltersHooks"`
 }
 
 // Validate the configuration

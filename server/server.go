@@ -43,6 +43,8 @@ import (
 	"github.com/dexidp/dex/connector/openshift"
 	"github.com/dexidp/dex/connector/saml"
 	"github.com/dexidp/dex/pkg/log"
+	"github.com/dexidp/dex/pkg/webhook/config"
+	"github.com/dexidp/dex/pkg/webhook/connectors"
 	"github.com/dexidp/dex/storage"
 	"github.com/dexidp/dex/web"
 )
@@ -80,6 +82,10 @@ type Config struct {
 	// If enabled, the server won't prompt the user to approve authorization requests.
 	// Logging in implies approval.
 	SkipApprovalScreen bool
+
+	// ConnectorFilterHooks is a list of hooks that can be used to filter the connectors returned by dex in the
+	// login page.
+	ConnectorFilterHooks config.ConnectorFilterHooks
 
 	// If enabled, the connectors selection page will always be shown even if there's only one
 	AlwaysShowLoginScreen bool
@@ -184,6 +190,8 @@ type Server struct {
 	refreshTokenPolicy *RefreshTokenPolicy
 
 	logger log.Logger
+
+	connectorWebhookFilter []*connectors.ConnectorFilterHook
 }
 
 // NewServer constructs a server from the provided config.
@@ -281,6 +289,15 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		now = time.Now
 	}
 
+	connectorFilters := make([]*connectors.ConnectorFilterHook, 0)
+	for _, hook := range c.ConnectorFilterHooks.FilterHooks {
+		filter, err := connectors.NewConnectorFilter(hook)
+		if err != nil {
+			return nil, err
+		}
+		connectorFilters = append(connectorFilters, filter)
+	}
+
 	s := &Server{
 		issuerURL:              *issuerURL,
 		connectors:             make(map[string]Connector),
@@ -297,6 +314,7 @@ func newServer(ctx context.Context, c Config, rotationStrategy rotationStrategy)
 		templates:              tmpls,
 		passwordConnector:      c.PasswordConnector,
 		logger:                 c.Logger,
+		connectorWebhookFilter: connectorFilters,
 	}
 
 	// Retrieves connector objects in backend storage. This list includes the static connectors
